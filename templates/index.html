@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Tracker & Predictor</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        .container {
+            width: 95%;
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #ffd700;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        #info {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background-color: #1e1e1e;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex: 1;
+        }
+        .card h2 {
+            color: #ffd700;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.5em;
+        }
+        .timestamp {
+            color: #888;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        .predicted-price {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .prediction-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4CAF50;
+            margin-top: 10px;
+        }
+        #plots {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        .plot {
+            width: 100%;
+            height: 600px;
+            background-color: #1e1e1e;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        @media (min-width: 1200px) {
+            #plots {
+                flex-direction: row;
+            }
+            .plot {
+                width: calc(50% - 15px);
+            }
+        }
+        @media (max-width: 768px) {
+            #info {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bitcoin Tracker & Predictor</h1>
+        <div id="info">
+            <div class="card current-stats">
+                <h2>Current Bitcoin Stats</h2>
+                <p class="timestamp" id="current-time"></p>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Price</span>
+                        <span class="stat-value" id="current-price"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Low</span>
+                        <span class="stat-value" id="current-low"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">High</span>
+                        <span class="stat-value" id="current-high"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Open</span>
+                        <span class="stat-value" id="current-open"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Close</span>
+                        <span class="stat-value" id="current-close"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Volume</span>
+                        <span class="stat-value" id="current-volume"></span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Market Cap</span>
+                        <span class="stat-value" id="current-market-cap"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="card predicted-price">
+                <h2>Predicted Price</h2>
+                <p class="timestamp" id="prediction-date"></p>
+                <div class="prediction-value" id="predicted-price-value"></div>
+            </div>
+        </div>
+        <div id="plots">
+            <div id="prediction-plot" class="plot"></div>
+            <div id="moving-averages-plot" class="plot"></div>
+        </div>
+    </div>
+    <script>
+        function updatePlots() {
+            $.getJSON('/update_data', function(data) {
+                console.log("Received data:", data);
+
+                var current_time = new Date();
+                var current_stats = data.current_stats;
+                var predicted_price = data.predicted_price;
+                var historical_data = data.historical_data;
+
+                // Update current stats
+                $('#current-time').text(current_time.toLocaleString(undefined, {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }));
+                $('#current-price').text('$' + current_stats.price.toFixed(2));
+                $('#current-low').text('$' + current_stats.low.toFixed(2));
+                $('#current-high').text('$' + current_stats.high.toFixed(2));
+                $('#current-open').text('$' + current_stats.open.toFixed(2));
+                $('#current-close').text('$' + current_stats.close.toFixed(2));
+                $('#current-volume').text(current_stats.volume.toFixed(2));
+                $('#current-market-cap').text('$' + current_stats.market_cap.toFixed(2));
+
+                // Update predicted price
+                var next_day = new Date(current_time);
+                next_day.setDate(current_time.getDate() + 1);
+                $('#prediction-date').text(next_day.toLocaleDateString(undefined, {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                }));
+                $('#predicted-price-value').text('$' + (predicted_price ? predicted_price.toFixed(2) : 'N/A'));
+
+                var dates = historical_data.map(d => new Date(d.Start));
+                var prices = historical_data.map(d => d.Close);
+
+                // Prediction Plot
+                var trace1 = {
+                    x: dates,
+                    y: prices,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Historical Prices',
+                    line: { color: '#4CAF50' }
+                };
+
+                var trace2 = {
+                    x: [current_time],
+                    y: [predicted_price],
+                    type: 'scatter',
+                    mode: 'markers',
+                    name: 'Predicted Price',
+                    marker: { color: '#FFA500', size: 10 }
+                };
+
+                var layout1 = {
+                    title: {
+                        text: 'Bitcoin Price Prediction',
+                        font: { size: 24, color: '#e0e0e0' }
+                    },
+                    xaxis: { 
+                        title: 'Date',
+                        gridcolor: '#444',
+                        tickfont: { color: '#e0e0e0' }
+                    },
+                    yaxis: { 
+                        title: 'Price (USD)',
+                        gridcolor: '#444',
+                        tickfont: { color: '#e0e0e0' }
+                    },
+                    paper_bgcolor: '#1e1e1e',
+                    plot_bgcolor: '#1e1e1e',
+                    font: { color: '#e0e0e0' },
+                    legend: { font: { color: '#e0e0e0' } }
+                };
+
+                var plotData1 = [trace1, trace2];
+
+                Plotly.newPlot('prediction-plot', plotData1, layout1);
+
+                // Moving Averages Plot
+                var maPlot = data.moving_averages_plot;
+                maPlot.layout.paper_bgcolor = '#1e1e1e';
+                maPlot.layout.plot_bgcolor = '#1e1e1e';
+                maPlot.layout.font = { color: '#e0e0e0' };
+                maPlot.layout.legend = { font: { color: '#e0e0e0' } };
+                maPlot.layout.xaxis.gridcolor = '#444';
+                maPlot.layout.yaxis.gridcolor = '#444';
+                maPlot.layout.xaxis.tickfont = { color: '#e0e0e0' };
+                maPlot.layout.yaxis.tickfont = { color: '#e0e0e0' };
+                Plotly.newPlot('moving-averages-plot', maPlot.data, maPlot.layout);
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.error("AJAX request failed:", textStatus, errorThrown);
+            });
+        }
+
+        $(document).ready(function() {
+            updatePlots();
+            setInterval(updatePlots, 30000);
+        });
+    </script>
+</body>
+</html>
